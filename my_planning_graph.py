@@ -428,6 +428,12 @@ class PlanningGraph():
         :return: bool
         '''
         # TODO test for Inconsistent Effects between nodes
+        # make sure a1's effects don't negate any of a2's effects
+        for c in node_a1.effnodes:
+            for p in node_a2.effnodes:
+                if c.symbol == p.symbol and (c.is_pos ^ p.is_pos):
+                    return True
+
         return False
 
     def interference_mutex(self, node_a1: PgNode_a, node_a2: PgNode_a) -> bool:
@@ -445,6 +451,18 @@ class PlanningGraph():
         :return: bool
         '''
         # TODO test for Interference between nodes
+        # make sure a1's preconditions don't negate any of a2's effects
+        for c in node_a1.prenodes:
+            for p in node_a2.effnodes:
+                if c.symbol == p.symbol and (c.is_pos ^ p.is_pos):
+                    return True
+
+        # make sure a2's preconditions don't negate any of a1's effects
+        for c in node_a2.prenodes:
+            for p in node_a1.effnodes:
+                if c.symbol == p.symbol and (c.is_pos ^ p.is_pos):
+                    return True
+
         return False
 
     def competing_needs_mutex(self, node_a1: PgNode_a, node_a2: PgNode_a) -> bool:
@@ -459,6 +477,12 @@ class PlanningGraph():
         '''
 
         # TODO test for Competing Needs between nodes
+        # make sure a1's preconditions (parent s node) are not a mutex with any of a2's preconditions (parent s node)
+        for c in node_a1.parents:
+            for p in node_a2.parents:
+                if p.is_mutex(c):
+                    return True
+
         return False
 
     def update_s_mutex(self, nodeset: set):
@@ -494,7 +518,7 @@ class PlanningGraph():
         :return: bool
         '''
         # TODO test for negation between nodes
-        return False
+        return node_s1.is_pos ^ node_s2.is_pos
 
     def inconsistent_support_mutex(self, node_s1: PgNode_s, node_s2: PgNode_s):
         '''
@@ -513,6 +537,13 @@ class PlanningGraph():
         :return: bool
         '''
         # TODO test for Inconsistent Support between nodes
+        for c in node_s1.parents:
+            for p in node_s2.parents:
+                if p.is_mutex(c):
+                    others = node_s1.parents.copy()
+                    others.discard(c)
+                    if len(others) == 0:
+                        return True
         return False
 
     def h_levelsum(self) -> int:
