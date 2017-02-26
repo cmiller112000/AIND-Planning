@@ -312,6 +312,30 @@ class PlanningGraph():
         #   to see if a proposed PgNode_a has prenodes that are a subset of the previous S level.  Once an
         #   action node is added, it MUST be connected to the S node instances in the appropriate s_level set.
 
+        self.a_levels.append(set())  # Ai set of a_nodes - empty to start
+
+        # for each action in the list of actions, add the correct action PgNode_a
+        # for each Si node at the same level that matches the action precondition
+        # link up this node to its parent PgNode_s
+        for action in self.all_actions:
+            slev=self.s_levels[level]
+            for literal in slev:
+                if literal.is_pos:
+                    for precond in action.precond_pos:
+                        if precond == literal.symbol:
+                            pg = PgNode_a(action)
+                            self.a_levels[level].add(pg)
+                            literal.children.add(pg)
+                            pg.parents.add(literal)
+                else:
+                    for precond in action.precond_neg:
+                        if precond == literal.symbol:
+                            pg = PgNode_a(action)
+                            self.a_levels[level].add(pg)
+                            literal.children.add(pg)
+                            pg.parents.add(literal)
+
+
     def add_literal_level(self, level):
         ''' add an S (literal) level to the Planning Graph
 
@@ -329,6 +353,23 @@ class PlanningGraph():
         #   may be "added" to the set without fear of duplication.  However, it is important to then correctly create and connect
         #   all of the new S nodes as children of all the A nodes that could produce them, and likewise add the A nodes to the
         #   parent sets of the S nodes
+
+        self.s_levels.append(set())  # add a new Si set of s_nodes
+
+        # for each action node and the previous level, add new PgNode_s nodes for each of its effect literals.
+        # make the parent child linkages
+
+        for anode in self.a_levels[level-1]:
+            for literal in anode.action.effect_add:
+                pg = PgNode_s(literal, True)
+                self.s_levels[level].add(pg)
+                pg.parents.add(anode)
+                anode.children.add(pg)
+            for literal in anode.action.effect_rem:
+                pg = PgNode_s(literal, False)
+                self.s_levels[level].add(pg)
+                pg.parents.add(anode)
+                anode.children.add(pg)
 
     def update_a_mutex(self, nodeset):
         ''' Determine and update sibling mutual exclusion for A-level nodes
@@ -482,4 +523,16 @@ class PlanningGraph():
         level_sum = 0
         # TODO implement
         # for each goal in the problem, determine the level cost, then add them together
+
+        for g in self.problem.goal:
+            gfound=False
+            for i in range(len(self.s_levels)):
+                for s in self.s_levels[i]:
+                    if g == s.literal:
+                        level_sum+=i
+                        gfound=True
+                        break
+                if gfound:
+                    break
+
         return level_sum
