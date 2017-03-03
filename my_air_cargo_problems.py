@@ -201,6 +201,7 @@ class AirCargoProblem(Problem):
         # requires implemented PlanningGraph class
         pg = PlanningGraph(self, node.state)
         pg_levelsum = pg.h_levelsum()
+#        print("Node:"+node.__repr__()+" levelsum:" + str(pg_levelsum))
         return pg_levelsum
 
     def h_ignore_preconditions(self, node: Node):

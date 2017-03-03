@@ -452,6 +452,7 @@ class PlanningGraph():
         '''
         # TODO test for Interference between nodes
         # make sure a1's preconditions don't negate any of a2's effects
+
         for c in node_a1.prenodes:
             for p in node_a2.effnodes:
                 if c.symbol == p.symbol and (c.is_pos ^ p.is_pos):
@@ -540,9 +541,12 @@ class PlanningGraph():
         for c in node_s1.parents:
             for p in node_s2.parents:
                 if p.is_mutex(c):
-                    others = node_s1.parents.copy()
-                    others.discard(c)
-                    if len(others) == 0:
+                    others=0
+                    for p2 in node_s1.parents:
+                        if p2 != c:
+                            others += 1
+                            break
+                    if others == 0:
                         return True
         return False
 
@@ -555,15 +559,16 @@ class PlanningGraph():
         # TODO implement
         # for each goal in the problem, determine the level cost, then add them together
 
-        for g in self.problem.goal:
-            gfound=False
-            for i in range(len(self.s_levels)):
-                for s in self.s_levels[i]:
-                    if g == s.literal:
-                        level_sum+=i
-                        gfound=True
+        gtofind=set(self.problem.goal)
+        for i in range(len(self.s_levels)):
+            for s in self.s_levels[i]:
+                if s.literal in gtofind:
+                    level_sum+=i
+                    gtofind.remove(s.literal)
+                    if len(gtofind) == 0:
                         break
-                if gfound:
-                    break
+            if len(gtofind) == 0:
+                break
+        level_sum+= (len(gtofind) * len(self.s_levels))
 
         return level_sum
