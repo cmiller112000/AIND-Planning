@@ -83,7 +83,7 @@ class PgNode_s(PgNode):
         :return:
             print only
         '''
-        print("\n*** {}".format(self.literal))
+        print("\n***SNode: {}".format(self.literal))
         PgNode.show(self)
 
     def __eq__(self, other):
@@ -135,7 +135,7 @@ class PgNode_a(PgNode):
         :return:
             print only
         '''
-        print("\n*** {}{}".format(self.action.name, self.action.args))
+        print("\n***ANode: {}{}".format(self.action.name, self.action.args))
         PgNode.show(self)
 
     def precond_s_nodes(self):
@@ -223,6 +223,22 @@ class PlanningGraph():
         self.s_levels = []
         self.a_levels = []
         self.create_graph()
+#        self.print_graph()
+
+    def print_graph(self, level=0):
+        if level >= len(self.s_levels):
+            return
+        print("\n\n********** Level: S" + str(level) )
+        for s in self.s_levels[level]:
+            tabs="\t"
+            print("\n\n- state: " + s.literal.__repr__())
+            for a in s.children:
+                tabs="\t\t"
+                print(tabs + " -- action: " + a.action.name + "-" + ''.join(a.action.args.__repr__()))
+                for snext in a.children:
+                    tabs="\t\t\t"
+                    print(tabs+ " -- child state: " + snext.literal.__repr__())
+        self.print_graph(level+1)
 
     def noop_actions(self, literal_list):
         '''create persistent action for each possible fluent
@@ -312,28 +328,26 @@ class PlanningGraph():
         #   to see if a proposed PgNode_a has prenodes that are a subset of the previous S level.  Once an
         #   action node is added, it MUST be connected to the S node instances in the appropriate s_level set.
 
-        self.a_levels.append(set())  # Ai set of a_nodes - empty to start
+        self.a_levels.append(set())  # Ai set of sa_nodes - empty to start
 
-        # for each action in the list of actions, add the correct action PgNode_a
-        # for each Si node at the same level that matches the action precondition
-        # link up this node to its parent PgNode_s
+        # for state on the current level, check to see if that is a precond of the actions
+        # if so, add this action to the same level for a_levels and link up the parent child
+        # # relations
+        symsetpos = set([ s.symbol for s in self.s_levels[level] if s.is_pos ])
+        symsetneg = set([ s.symbol for s in self.s_levels[level] if not s.is_pos ])
+
         for action in self.all_actions:
-            slev=self.s_levels[level]
-            for literal in slev:
-                if literal.is_pos:
-                    for precond in action.precond_pos:
-                        if precond == literal.symbol:
-                            pg = PgNode_a(action)
-                            self.a_levels[level].add(pg)
-                            literal.children.add(pg)
-                            pg.parents.add(literal)
-                else:
-                    for precond in action.precond_neg:
-                        if precond == literal.symbol:
-                            pg = PgNode_a(action)
-                            self.a_levels[level].add(pg)
-                            literal.children.add(pg)
-                            pg.parents.add(literal)
+            precondpos = set(action.precond_pos)
+            precondneg = set(action.precond_neg)
+            if precondpos.issubset(symsetpos) and precondneg.issubset(symsetneg):
+                pg = PgNode_a(action)
+                self.a_levels[level].add(pg)
+
+        for anode in self.a_levels[level]:
+            for s in self.s_levels[level]:
+                precond = set(action.precond_neg).union(set(action.precond_pos))
+                if s.literal in precond:
+                    s.children.add(anode)
 
 
     def add_literal_level(self, level):
@@ -559,16 +573,20 @@ class PlanningGraph():
         # TODO implement
         # for each goal in the problem, determine the level cost, then add them together
 
-        gtofind=set(self.problem.goal)
-        for i in range(len(self.s_levels)):
-            for s in self.s_levels[i]:
-                if s.literal in gtofind:
-                    level_sum+=i
-                    gtofind.remove(s.literal)
-                    if len(gtofind) == 0:
+        for g in self.problem.goal:
+            found = False
+            for i in range(len(self.s_levels)):
+                if found:
+                    break
+                for s in self.s_levels[i]:
+                    if found:
                         break
-            if len(gtofind) == 0:
-                break
-        level_sum+= (len(gtofind) * len(self.s_levels))
+#                    sout = "g: |" + g.__repr__() + "| " + " s:|" + s.literal.__repr__()+"|"
+#                    print(sout)
+                    if g == s.literal:
+                        found=True
+#                        print(g.__repr__() + " found at level:" + str(i))
+                        level_sum+=i
 
+#        print("level_sum:" + str(level_sum))
         return level_sum
